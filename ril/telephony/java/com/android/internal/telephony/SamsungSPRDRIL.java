@@ -65,31 +65,6 @@ public class SamsungSPRDRIL extends RIL implements CommandsInterface {
     }
 
     @Override
-    public void
-    dial(String address, int clirMode, UUSInfo uusInfo, Message result) {
-        RILRequest rr = RILRequest.obtain(RIL_REQUEST_DIAL, result);
-
-        rr.mParcel.writeString(address);
-        rr.mParcel.writeInt(clirMode);
-        rr.mParcel.writeInt(0);     // CallDetails.call_type
-        rr.mParcel.writeInt(1);     // CallDetails.call_domain
-        rr.mParcel.writeString(""); // CallDetails.getCsvFromExtras
-
-        if (uusInfo == null) {
-            rr.mParcel.writeInt(0); // UUS information is absent
-        } else {
-            rr.mParcel.writeInt(1); // UUS information is present
-            rr.mParcel.writeInt(uusInfo.getType());
-            rr.mParcel.writeInt(uusInfo.getDcs());
-            rr.mParcel.writeByteArray(uusInfo.getUserData());
-        }
-
-        if (RILJ_LOGD) riljLog(rr.serialString() + "> " + requestToString(rr.mRequest));
-
-        send(rr);
-    }
-
-    @Override
     public void setDataAllowed(boolean allowed, Message result) {
         if (RILJ_LOGD) riljLog("setDataAllowed: allowed:" + allowed + " msg:" + result);
         if (allowed) {
@@ -112,66 +87,6 @@ public class SamsungSPRDRIL extends RIL implements CommandsInterface {
             Object ret = makeStaticRadioCapability();
             AsyncResult.forMessage(response, ret, null);
             response.sendToTarget();
-        }
-    }
-
-    @Override
-    protected Object responseFailCause(Parcel p) {
-        int numInts = p.readInt();
-        int response[] = new int[numInts];
-        for (int i = 0 ; i < numInts ; i++)
-            response[i] = p.readInt();
-        LastCallFailCause failCause = new LastCallFailCause();
-        failCause.causeCode = response[0];
-        if (p.dataAvail() > 0)
-            failCause.vendorCause = p.readString();
-        return failCause;
-    }
-
-    @Override
-    protected void processUnsolicited(Parcel p, int type) {
-        int originalDataPosition = p.dataPosition();
-        int response = p.readInt();
-        Object ret;
-        try {
-            switch (response) {
-            case RIL_UNSOL_DEVICE_READY_NOTI:
-                ret = responseVoid(p);
-                break;
-            case RIL_UNSOL_AM:
-                ret = responseString(p);
-                break;
-            case RIL_UNSOL_SIM_PB_READY:
-                ret = responseVoid(p);
-                break;
-            default:
-                p.setDataPosition(originalDataPosition);
-                super.processUnsolicited(p, type);
-                return;
-            }
-        } catch (Throwable tr) {
-            Rlog.e(RILJ_LOG_TAG, "Exception processing unsol response: " + response +
-                    "Exception:" + tr.toString());
-            return;
-        }
-        switch (response) {
-        case RIL_UNSOL_DEVICE_READY_NOTI:
-            if (RILJ_LOGD) riljLog("[UNSL]< UNSOL_DEVICE_READY_NOTI");
-            break;
-        case RIL_UNSOL_AM: {
-            String amString = (String) ret;
-            if (RILJ_LOGD) riljLog("[UNSL]< UNSOL_AM '" + amString + "'");
-            try {
-                Runtime.getRuntime().exec("am " + amString);
-            } catch (IOException e) {
-                e.printStackTrace();
-                Rlog.e(RILJ_LOG_TAG, "am " + amString + " could not be executed.");
-            }
-            break;
-        }
-        case RIL_UNSOL_SIM_PB_READY:
-            if (RILJ_LOGD) riljLog("[UNSL]< UNSOL_SIM_PB_READY");
-            break;
         }
     }
 }
